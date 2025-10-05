@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
 
     // Prepare feedback texts
     const feedbackTexts = feedbackData
-      .map((fb: any) => fb.text)
-      .filter((text: any): text is string => typeof text === 'string' && text.trim().length > 0);
+      .map((fb: Record<string, unknown>) => fb.text)
+      .filter((text: unknown): text is string => typeof text === 'string' && text.trim().length > 0);
 
     // Generate document using AI
     const document = await generateDocumentWithAI(
