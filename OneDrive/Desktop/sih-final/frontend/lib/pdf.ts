@@ -28,7 +28,7 @@ async function getHtml2Canvas(): Promise<Html2CanvasFn> {
 export interface GeneratedDocSection {
   heading?: string
   title?: string
-  content: string
+  content: string | string[]
 }
 
 export interface GeneratedDocumentLike {
@@ -124,7 +124,15 @@ export function exportGeneratedDocumentToPDF(doc: GeneratedDocumentLike, filenam
 
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(11)
-    const paragraphs = section.content.split('\n\n')
+    
+    // Handle content as string or array
+    const contentStr = typeof section.content === 'string' 
+      ? section.content 
+      : Array.isArray(section.content)
+      ? section.content.join('\n\n')
+      : String(section.content);
+    
+    const paragraphs = contentStr.split('\n\n')
     for (const p of paragraphs) {
       const pLines = pdf.splitTextToSize(p, maxWidth)
       y = ensureSpace(pdf, y, pLines.length * 6 + 4, margin)

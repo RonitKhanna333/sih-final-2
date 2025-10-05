@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Fetch feedback data based on filters
     let query = supabase
       .from('Feedback')
-      .select('text, sentiment, stakeholderType, stakeholder_type, createdAt, created_at');
+      .select('text, sentiment, stakeholderType, createdAt');
 
     // Apply sentiment filter if specified
     if (sentimentFilter && sentimentFilter !== 'all') {

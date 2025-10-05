@@ -14,7 +14,7 @@ const API_BASE = '/api';
 
 interface DocumentSection {
   title: string;
-  content: string;
+  content: string | string[];
 }
 
 interface GeneratedDocument {
@@ -305,11 +305,19 @@ export default function DocumentGenerator() {
                     {section.title}
                   </h3>
                   <div className="prose prose-sm max-w-none text-gray-700">
-                    {section.content.split('\n\n').map((paragraph, pIndex) => (
-                      <p key={pIndex} className="mb-3 leading-relaxed">
-                        {paragraph}
-                      </p>
-                    ))}
+                    {(() => {
+                      const content: string = typeof section.content === 'string' 
+                        ? section.content 
+                        : Array.isArray(section.content)
+                        ? section.content.join('\n\n')
+                        : String(section.content);
+                      
+                      return content.split('\n\n').map((paragraph: string, pIndex: number) => (
+                        <p key={pIndex} className="mb-3 leading-relaxed">
+                          {paragraph}
+                        </p>
+                      ));
+                    })()}
                   </div>
                 </div>
               ))}

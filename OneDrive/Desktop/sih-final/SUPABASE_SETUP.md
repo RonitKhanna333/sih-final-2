@@ -1,104 +1,204 @@
-# 🚀 Using Supabase Instead of Local PostgreSQL
+# Supabase Setup Guide# 🚀 Using Supabase Instead of Local PostgreSQL
 
-## Why Supabase?
 
-- ✅ **No local installation** - works in the cloud
-- ✅ **Free tier** - generous limits for development
-- ✅ **Built-in GUI** - manage database visually
-- ✅ **Instant setup** - ready in 2 minutes
-- ✅ **PostgreSQL compatible** - works with our Prisma schema
 
----
+## 1. Create Supabase Project (2 minutes)## Why Supabase?
 
-## Step 1: Create Supabase Account (2 minutes)
 
-1. **Go to:** https://supabase.com/
-2. **Click:** "Start your project"
-3. **Sign in with:** GitHub, Google, or Email
+
+1. Go to [https://supabase.com](https://supabase.com)- ✅ **No local installation** - works in the cloud
+
+2. Sign up/login with GitHub- ✅ **Free tier** - generous limits for development
+
+3. Click "New Project"- ✅ **Built-in GUI** - manage database visually
+
+4. Choose organization and project name: `sih-policy-platform`- ✅ **Instant setup** - ready in 2 minutes
+
+5. Set database password (save it!)- ✅ **PostgreSQL compatible** - works with our Prisma schema
+
+6. Choose region (closest to you)
+
+7. Click "Create new project"---
+
+
+
+## 2. Get Project URLs## Step 1: Create Supabase Account (2 minutes)
+
+
+
+After project creation, go to **Settings > API**:1. **Go to:** https://supabase.com/
+
+- Copy **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`2. **Click:** "Start your project"
+
+- Copy **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`3. **Sign in with:** GitHub, Google, or Email
+
 4. **It's FREE!** No credit card required
 
+## 3. Update Environment Variables
+
 ---
 
-## Step 2: Create a New Project (1 minute)
+Update your `.env.local` file:
 
-1. **Click:** "New Project"
-2. **Fill in:**
+```bash## Step 2: Create a New Project (1 minute)
+
+NEXT_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co"
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key-here"1. **Click:** "New Project"
+
+```2. **Fill in:**
+
    - **Name:** `econsultation` (or any name you like)
-   - **Database Password:** Choose a strong password and SAVE IT
+
+## 4. Create Database Tables   - **Database Password:** Choose a strong password and SAVE IT
+
    - **Region:** Choose closest to you (e.g., "South Asia (Mumbai)" or "Southeast Asia (Singapore)")
-   - **Pricing Plan:** Free (includes 500MB database, 2GB bandwidth)
 
-3. **Click:** "Create new project"
-4. **Wait:** ~2 minutes for setup (grab a coffee ☕)
+Run these SQL commands in **Supabase Dashboard > SQL Editor**:   - **Pricing Plan:** Free (includes 500MB database, 2GB bandwidth)
 
----
 
-## Step 3: Get Your Connection String
 
-1. **In your Supabase project dashboard:**
-   - Click **"Settings"** (gear icon in sidebar)
-   - Click **"Database"**
-   - Scroll to **"Connection string"**
+```sql3. **Click:** "Create new project"
+
+-- Users table4. **Wait:** ~2 minutes for setup (grab a coffee ☕)
+
+CREATE TABLE users (
+
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,---
+
+  email VARCHAR UNIQUE NOT NULL,
+
+  name VARCHAR NOT NULL,## Step 3: Get Your Connection String
+
+  role VARCHAR DEFAULT 'client' CHECK (role IN ('admin', 'client')),
+
+  password VARCHAR NOT NULL,1. **In your Supabase project dashboard:**
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),   - Click **"Settings"** (gear icon in sidebar)
+
+  updated_at TIMESTAMPTZ DEFAULT NOW()   - Click **"Database"**
+
+);   - Scroll to **"Connection string"**
+
    - Select **"URI"** tab
-   - Copy the connection string (looks like):
-   ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxxxxxxxxxx.supabase.co:5432/postgres
-   ```
 
-2. **Replace `[YOUR-PASSWORD]`** with the password you set in Step 2
+-- Feedback table   - Copy the connection string (looks like):
 
----
+CREATE TABLE feedback (   ```
 
-## Step 4: Update Your Backend Configuration
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxxxxxxxxxx.supabase.co:5432/postgres
 
-### 4.1 Edit backend/.env file
+  text TEXT NOT NULL,   ```
 
-```powershell
-cd backend
-copy .env.example .env
-notepad .env
-```
+  sentiment VARCHAR CHECK (sentiment IN ('Positive', 'Negative', 'Neutral')),
+
+  language VARCHAR DEFAULT 'English',2. **Replace `[YOUR-PASSWORD]`** with the password you set in Step 2
+
+  nuances JSONB DEFAULT '{}',
+
+  is_spam BOOLEAN DEFAULT FALSE,---
+
+  legal_risk_score INTEGER DEFAULT 0,
+
+  compliance_difficulty_score INTEGER DEFAULT 0,## Step 4: Update Your Backend Configuration
+
+  business_growth_score INTEGER DEFAULT 0,
+
+  stakeholder_type VARCHAR,### 4.1 Edit backend/.env file
+
+  sector VARCHAR,
+
+  edge_case_flags TEXT[] DEFAULT '{}',```powershell
+
+  policy_id UUID,cd backend
+
+  summary TEXT,copy .env.example .env
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),notepad .env
+
+  updated_at TIMESTAMPTZ DEFAULT NOW()```
+
+);
 
 ### 4.2 Paste your Supabase connection string:
 
-```env
-# Replace this line:
-DATABASE_URL="postgresql://postgres:password@localhost:5432/econsultation_db"
+-- Policies table
 
-# With your Supabase connection string:
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.xxxxxxxxxxxxx.supabase.co:5432/postgres"
+CREATE TABLE policies (```env
 
-# Also add your Groq API key (get free key from https://console.groq.com):
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,# Replace this line:
+
+  title VARCHAR NOT NULL,DATABASE_URL="postgresql://postgres:password@localhost:5432/econsultation_db"
+
+  description TEXT,
+
+  status VARCHAR DEFAULT 'draft' CHECK (status IN ('draft', 'review', 'published')),# With your Supabase connection string:
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.xxxxxxxxxxxxx.supabase.co:5432/postgres"
+
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+
+);# Also add your Groq API key (get free key from https://console.groq.com):
+
 GROQ_API_KEY="your_groq_api_key_here"
+
+-- Add foreign key after policies table exists```
+
+ALTER TABLE feedback ADD CONSTRAINT fk_feedback_policy 
+
+  FOREIGN KEY (policy_id) REFERENCES policies(id);**Save and close** the file.
+
 ```
 
-**Save and close** the file.
-
 ---
+
+## 5. Enable Row Level Security (Optional but Recommended)
 
 ## Step 5: Setup Database Schema with Prisma
 
-```powershell
-# Make sure you're in the backend folder
-cd C:\Users\Ronit Khanna\OneDrive\Desktop\sih-final\backend
+```sql
+
+-- Enable RLS```powershell
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;# Make sure you're in the backend folder
+
+ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;cd C:\Users\Ronit Khanna\OneDrive\Desktop\sih-final\backend
+
+ALTER TABLE policies ENABLE ROW LEVEL SECURITY;
 
 # Activate virtual environment (if not already activated)
-.\venv\Scripts\Activate.ps1
 
-# Generate Prisma client
-prisma generate
+-- Allow public read access for demo (adjust as needed).\venv\Scripts\Activate.ps1
 
-# Push schema to Supabase (creates all tables automatically!)
+CREATE POLICY "Public read access" ON feedback FOR SELECT USING (true);
+
+CREATE POLICY "Public insert access" ON feedback FOR INSERT WITH CHECK (true);# Generate Prisma client
+
+```prisma generate
+
+
+
+## 6. Test Connection# Push schema to Supabase (creates all tables automatically!)
+
 prisma db push
-```
 
-**Expected output:**
-```
-🚀  Your database is now in sync with your Prisma schema. Done in 5.2s
-✔ Generated Prisma Client Python to ...
-```
+After updating `.env.local`, the app should connect to Supabase automatically!```
 
----
+
+
+## Benefits of Supabase:**Expected output:**
+
+- ✅ **Better connectivity** than Neon```
+
+- ✅ **No Prisma complexity** - Direct SQL calls🚀  Your database is now in sync with your Prisma schema. Done in 5.2s
+
+- ✅ **Instant APIs** - Auto-generated REST endpoints✔ Generated Prisma Client Python to ...
+
+- ✅ **Real-time** - Built-in subscriptions```
+
+- ✅ **Auth built-in** - Can replace our custom JWT later
+
+- ✅ **Dashboard** - Easy data viewing and management---
 
 ## Step 6: Verify in Supabase Dashboard
 
