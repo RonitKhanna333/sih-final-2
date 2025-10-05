@@ -51,7 +51,7 @@ export default function DocumentGenerator() {
     mutationFn: async (request: GenerateRequest) => {
       const token = localStorage.getItem('token');
       const response = await axios.post<GeneratedDocument>(
-        `${API_BASE}/summary`,
+        `${API_BASE}/generate-document`,
         request,
         { headers: { Authorization: `Bearer ${token}` } }
       );
