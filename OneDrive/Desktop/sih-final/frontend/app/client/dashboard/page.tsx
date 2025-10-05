@@ -8,9 +8,44 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { FileText, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import PolicyContext from '@/components/PolicyContext';
-import { policyAPI, feedbackAPI, type Policy } from '@/lib/api';
+import { policyAPI, type Policy } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Using Next.js API routes - no external backend needed
+const API_BASE = '/api';
+
+interface FeedbackEntry {
+  id: string;
+  text: string;
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
+  language: string;
+  nuances: string[];
+  isSpam: boolean;
+  legalRiskScore: number;
+  complianceDifficultyScore: number;
+  businessGrowthScore: number;
+  stakeholderType?: string;
+  sector?: string;
+  summary?: string;
+  edgeCaseFlags: string[];
+  policyId?: string;
+  sentimentConfidence?: number;
+  reasoning?: string;
+  createdAt: string;
+  updatedAt?: string;
+  legalReference?: string | { case: string };
+}
+
+interface FeedbackListResponse {
+  data: FeedbackEntry[];
+}
+
+interface SubmitFeedbackPayload {
+  text: string;
+  language: string;
+  stakeholderType?: string;
+  sector?: string;
+  policyId?: string;
+}
 
 export default function ClientDashboard() {
   const [text, setText] = useState('');
@@ -29,11 +64,11 @@ export default function ClientDashboard() {
   });
 
   // Fetch user's submissions
-  const { data: myFeedbackResponse, isLoading } = useQuery({
+  const { data: myFeedbackResponse, isLoading } = useQuery<FeedbackListResponse>({
     queryKey: ['myFeedback'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/v1/feedback/?limit=50`, {
+      const response = await axios.get(`${API_BASE}/feedback?limit=50`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -45,9 +80,9 @@ export default function ClientDashboard() {
 
   // Submit feedback mutation
   const submitMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (payload: SubmitFeedbackPayload) => {
       const token = localStorage.getItem('token');
-      return axios.post(`${API_URL}/api/v1/feedback/`, data, {
+      return axios.post(`${API_BASE}/feedback`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -246,7 +281,7 @@ export default function ClientDashboard() {
               </div>
             ) : myFeedback && myFeedback.length > 0 ? (
               <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                {myFeedback.map((feedback: any) => (
+                {myFeedback.map((feedback) => (
                   <div
                     key={feedback.id}
                     className="border rounded-lg p-4 hover:shadow-md transition-shadow"

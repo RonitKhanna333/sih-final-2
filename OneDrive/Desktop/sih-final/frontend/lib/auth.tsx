@@ -2,8 +2,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
+import type { LoginResponse, RegisterResponse } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative URLs for our Next.js API routes
+const API_BASE = '/api';
 
 // Types
 export interface User {
@@ -42,41 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
-      
-      // Verify token is still valid
-      verifyToken(storedToken).catch(() => {
-        // Token invalid, clear storage
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
-      });
     }
     
     setLoading(false);
   }, []);
 
-  // Verify token with backend
-  const verifyToken = async (token: string) => {
-    try {
-      const response = await axios.get(`${API_URL}/api/v1/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   // Login function
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${API_URL}/api/v1/auth/login`, {
+      const response = await axios.post<LoginResponse>(`${API_BASE}/auth/login`, {
         email,
         password
       });
 
-      const { accessToken, user: userData } = response.data;
+      const { token: accessToken, user: userData } = response.data;
       
       // Store in state
       setToken(accessToken);
@@ -85,8 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Store in localStorage
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(userData));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Login failed';
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError<{ error?: string }>(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Login failed';
       throw new Error(errorMessage);
     }
   };
@@ -94,24 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Register function
   const register = async (email: string, password: string, name: string, role: 'admin' | 'client') => {
     try {
-      const response = await axios.post(`${API_URL}/api/v1/auth/register`, {
+      await axios.post<RegisterResponse>(`${API_BASE}/auth/register`, {
         email,
         password,
         name,
         role
       });
 
-      const { accessToken, user: userData } = response.data;
-      
-      // Store in state
-      setToken(accessToken);
-      setUser(userData);
-      
-      // Store in localStorage
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Registration failed';
+      // Registration successful, now auto-login
+      await login(email, password);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError<{ error?: string }>(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Registration failed';
       throw new Error(errorMessage);
     }
   };

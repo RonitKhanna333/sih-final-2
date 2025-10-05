@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { FileText, Download, Sparkles, AlertCircle } from 'lucide-react';
-import { exportGeneratedDocumentToPDF } from '@/lib/pdf';
+import { exportGeneratedDocumentToPDF, type GeneratedDocumentLike } from '@/lib/pdf';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Using Next.js API routes - no external backend needed
+const API_BASE = '/api';
 
 interface DocumentSection {
   title: string;
@@ -42,15 +43,19 @@ export default function DocumentGenerator() {
   const [topic, setTopic] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<string>('all');
 
-  const generateMutation = useMutation({
+  const generateMutation = useMutation<
+    GeneratedDocument,
+    AxiosError<{ detail?: string }>,
+    GenerateRequest
+  >({
     mutationFn: async (request: GenerateRequest) => {
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_URL}/api/v1/ai/documents/generate`,
+      const response = await axios.post<GeneratedDocument>(
+        `${API_BASE}/summary`,
         request,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      return response.data as GeneratedDocument;
+      return response.data;
     },
   });
 
@@ -100,11 +105,14 @@ export default function DocumentGenerator() {
   const handleDownloadPDF = () => {
     if (!generateMutation.data) return;
     // Map response shape to pdf helper's expected format
-    const doc = generateMutation.data as any;
-    const mapped = {
+    const doc = generateMutation.data;
+    const mapped: GeneratedDocumentLike = {
       title: doc.title,
       documentType: doc.documentType,
-      sections: (doc.sections || []).map((s: any) => ({ heading: s.heading || s.title, content: s.content })),
+      sections: (doc.sections || []).map((section) => ({
+        heading: section.title,
+        content: section.content,
+      })),
       metadata: doc.metadata,
     };
     exportGeneratedDocumentToPDF(mapped, `${doc.title.replace(/\s+/g, '_')}.pdf`);
@@ -242,7 +250,7 @@ export default function DocumentGenerator() {
               <div>
                 <p className="font-medium text-red-900">Generation Failed</p>
                 <p className="text-sm text-red-700 mt-1">
-                  {(generateMutation.error as any)?.response?.data?.detail ||
+                  {generateMutation.error?.response?.data?.detail ||
                     'Failed to generate document. Ensure sufficient relevant feedback exists.'}
                 </p>
               </div>
@@ -320,8 +328,8 @@ export default function DocumentGenerator() {
                 <p className="font-medium text-blue-900 mb-2">AI Document Generation Tips:</p>
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>
-                    • <strong>Be specific:</strong> Use focused topics for better results (e.g., "5G rollout in
-                    rural areas" vs. "telecom policy")
+                    • <strong>Be specific:</strong> Use focused topics for better results (e.g., “5G rollout in
+                    rural areas” vs. “telecom policy”)
                   </li>
                   <li>
                     • <strong>Briefings:</strong> Best for executive summaries with stakeholder positions and

@@ -24,11 +24,11 @@ import DebateMap from '@/components/DebateMap';
 import DocumentGenerator from '@/components/DocumentGenerator';
 import AIChatAssistant from '@/components/AIChatAssistant';
 import ClusteringAnalysis from '@/components/ClusteringAnalysis';
-import PolicyContext from '@/components/PolicyContext';
 import { policyAPI, type Policy } from '@/lib/api';
 import { exportElementToPDF } from '@/lib/pdf';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Using Next.js API routes - no external backend needed
+const API_BASE = '/api';
 
 interface KPIData {
   totalSubmissions: number;
@@ -42,7 +42,8 @@ interface KPIData {
 
 interface Feedback {
   id: string;
-  feedback: string;
+  text: string;
+  feedback?: string; // For backward compatibility
   sentiment: string;
   stakeholderName?: string;
   stakeholderType?: string;
@@ -79,7 +80,7 @@ export default function AdminDashboardPage() {
     queryKey: ['kpis'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/v1/analytics/kpis`, {
+      const response = await axios.get(`${API_BASE}/analytics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -92,7 +93,7 @@ export default function AdminDashboardPage() {
     queryKey: ['feedback'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/v1/feedback/`, {
+      const response = await axios.get(`${API_BASE}/feedback`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -101,13 +102,15 @@ export default function AdminDashboardPage() {
 
   const feedback = feedbackData?.data || [];
 
+  const getKpiValue = (value?: number) => (kpisLoading ? '…' : value ?? 0);
+
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        `${API_URL}/api/v1/feedback/`,
+        `${API_BASE}/feedback`,
         {
           text: newComment,
           stakeholderType: feedbackType,
@@ -258,7 +261,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Total Comments</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {kpis?.totalSubmissions || 0}
+                    {getKpiValue(kpis?.totalSubmissions)}
                   </p>
                   <p className="text-xs text-green-600 flex items-center space-x-1">
                     <TrendingUp className="h-3 w-3" />
@@ -277,7 +280,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Positive</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {kpis?.positiveFeedback || 0}
+                    {getKpiValue(kpis?.positiveFeedback)}
                   </p>
                   <p className="text-xs text-green-600 flex items-center space-x-1">
                     <TrendingUp className="h-3 w-3" />
@@ -296,7 +299,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Negative</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {kpis?.negativeFeedback || 0}
+                    {getKpiValue(kpis?.negativeFeedback)}
                   </p>
                   <p className="text-xs text-red-600 flex items-center space-x-1">
                     <TrendingDown className="h-3 w-3" />
@@ -315,7 +318,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Neutral</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {kpis?.neutralFeedback || 0}
+                    {getKpiValue(kpis?.neutralFeedback)}
                   </p>
                   <p className="text-xs text-yellow-600 flex items-center space-x-1">
                     <Minus className="h-3 w-3" />
@@ -333,7 +336,9 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Quality Score</p>
-                  <p className="text-3xl font-bold text-gray-900">0%</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {kpisLoading ? '…' : '0%'}
+                  </p>
                   <p className="text-xs text-gray-500">Spam filtered</p>
                 </div>
               </div>
@@ -348,7 +353,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-1">
                   <p className="text-gray-600 text-sm font-medium">Languages</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {kpis?.totalLanguages || 0}
+                    {getKpiValue(kpis?.totalLanguages)}
                   </p>
                   <p className="text-xs text-gray-500">Detected</p>
                 </div>
@@ -448,7 +453,7 @@ export default function AdminDashboardPage() {
                         <div key={item.id} className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 transition-colors">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <p className="text-gray-900 mb-2">{item.feedback}</p>
+                              <p className="text-gray-900 mb-2">{item.text || item.feedback}</p>
                               <div className="flex items-center space-x-4 text-xs text-gray-500">
                                 <span>{item.stakeholderName || 'Anonymous'}</span>
                                 <span>•</span>

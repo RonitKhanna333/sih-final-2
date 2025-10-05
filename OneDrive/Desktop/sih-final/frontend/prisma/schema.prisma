@@ -1,0 +1,95 @@
+// Prisma schema for eConsultation AI Analytics - Next.js Version
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hashed password
+  name      String
+  role      String   @default("client") // "admin" or "client"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Policy {
+  id          String     @id @default(uuid())
+  title       String
+  description String
+  fullText    String     @db.Text
+  version     String     @default("1.0")
+  status      String     @default("draft") // draft, active, archived
+  category    String?    // e.g., "Corporate Law", "Data Protection"
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  feedbacks   Feedback[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Feedback {
+  id                         String   @id @default(uuid())
+  text                       String
+  sentiment                  String   // Positive, Negative, Neutral
+  language                   String
+  nuances                    String[] // Array of detected nuances
+  isSpam                     Boolean  @default(false)
+  legalRiskScore             Int      @default(0)
+  complianceDifficultyScore  Int      @default(0)
+  businessGrowthScore        Int      @default(0)
+  stakeholderType            String?
+  sector                     String?
+  summary                    String?
+  edgeCaseMatch              String?  // RAG-retrieved edge case
+  edgeCaseFlags              String[] // Additional detected flags
+  legalReference             Json?    // Top matching legal precedent
+  policyId                   String?  // Link to policy being commented on
+  policy                     Policy?  @relation(fields: [policyId], references: [id])
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([sentiment])
+  @@index([language])
+  @@index([policyId])
+}
+
+model LegalPrecedent {
+  id           String  @id @default(uuid())
+  caseName     String
+  jurisdiction String
+  year         Int
+  keywords     String
+  summary      String
+  relevance    Float   @default(0.8)
+  createdAt    DateTime @default(now())
+
+  @@index([caseName])
+  @@index([jurisdiction])
+  @@index([year])
+}
+
+model HistoricalImpact {
+  id                      String  @id @default(uuid())
+  policy                  String
+  yearImplemented         Int
+  complianceCostImpact    Float
+  businessGrowthImpact    Float
+  litigationImpact        Float
+  stakeholderSatisfaction Float
+  createdAt               DateTime @default(now())
+
+  @@index([policy])
+  @@index([yearImplemented])
+}

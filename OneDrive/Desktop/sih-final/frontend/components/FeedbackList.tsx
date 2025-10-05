@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { feedbackAPI, type Feedback, type FeedbackListResponse } from '@/lib/api';
-import FeedbackCard from './FeedbackCard';
+import { feedbackAPI, type FeedbackListResponse } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function FeedbackList() {
   const { data: feedbackResponse, isLoading, error } = useQuery<FeedbackListResponse>({
@@ -48,7 +48,30 @@ export default function FeedbackList() {
       
       <div className="space-y-3">
         {feedbacks.map((feedback) => (
-          <FeedbackCard key={feedback.id} feedback={feedback} />
+          <Card key={feedback.id} className="w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex justify-between items-center">
+                <span className={`inline-block px-2 py-1 rounded text-sm ${
+                  feedback.sentiment === 'Positive' ? 'bg-green-100 text-green-800' :
+                  feedback.sentiment === 'Negative' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {feedback.sentiment}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {new Date(feedback.createdAt).toLocaleDateString()}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 mb-2">{feedback.text}</p>
+              {feedback.stakeholderType && (
+                <div className="text-sm text-muted-foreground">
+                  Type: {feedback.stakeholderType} • Sector: {feedback.sector || 'N/A'}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

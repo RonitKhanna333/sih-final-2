@@ -36,8 +36,9 @@ export default function LoginPage() {
         const userData = JSON.parse(storedUser);
         router.push(userData.role === 'admin' ? '/admin/dashboard' : '/client/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to login');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to login';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -102,7 +103,7 @@ export default function LoginPage() {
             </Button>
             
             <p className="text-sm text-center text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/register" className="text-blue-600 hover:underline font-medium">
                 Sign up
               </Link>

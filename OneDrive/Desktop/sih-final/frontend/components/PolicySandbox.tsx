@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Sparkles, AlertTriangle, TrendingUp, TrendingDown, Minus, Lightbulb } from 'lucide-react';
 import { Policy } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Using Next.js API routes - no external backend needed
+const API_BASE = '/api';
 
 interface StakeholderImpact {
   stakeholderType: string;
@@ -48,7 +49,7 @@ export default function PolicySandbox({ policy }: PolicySandboxProps) {
     mutationFn: async () => {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${API_URL}/api/v1/ai/policy/simulate`,
+        `${API_BASE}/summary`,
         {
           originalText,
           modifiedText
@@ -178,7 +179,7 @@ export default function PolicySandbox({ policy }: PolicySandboxProps) {
               <CardTitle className="text-lg">Identified Change</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 italic">"{simulationResult.identifiedChange}"</p>
+              <p className="text-gray-700 italic">&ldquo;{simulationResult.identifiedChange}&rdquo;</p>
             </CardContent>
           </Card>
 
@@ -211,11 +212,11 @@ export default function PolicySandbox({ policy }: PolicySandboxProps) {
                 <span>Confidence Level:</span>
                 <div className="flex-1 bg-gray-200 rounded-full h-2">
                   <div 
-                    className="bg-indigo-600 h-2 rounded-full"
-                    style={{ width: `${simulationResult.confidence * 100}%` }}
+                    className="bg-indigo-600 h-2 rounded-full transition-all"
+                    style={{ width: `${simulationResult.confidence}%` }}
                   ></div>
                 </div>
-                <span className="font-medium">{(simulationResult.confidence * 100).toFixed(0)}%</span>
+                <span className="font-medium">{simulationResult.confidence}%</span>
               </div>
             </CardContent>
           </Card>

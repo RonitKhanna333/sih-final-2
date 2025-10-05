@@ -1,9 +1,11 @@
 /**
- * API client for frontend communication with the FastAPI backend
+ * API client for frontend communication with Next.js API routes
+ * No external backend needed - uses internal /api/* endpoints
  */
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative URLs for API routes within the same Next.js app
+const API_BASE_URL = '/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -50,9 +52,11 @@ export interface Feedback {
   summary?: string;
   edgeCaseMatch?: string;
   edgeCaseFlags: string[];
-  legalReference?: any;
+  legalReference?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  sentimentConfidence?: number;
+  reasoning?: string;
 }
 
 export interface FeedbackSubmitRequest {
@@ -94,6 +98,7 @@ export interface ClusterResponse {
   };
   silhouetteScore?: number;
   numClusters: number;
+  narrative?: string;
 }
 
 export interface LegalPrecedent {
@@ -121,6 +126,39 @@ export interface FeedbackListResponse {
   pagination: PaginationData;
 }
 
+export interface DebateMapPoint {
+  id: string;
+  x: number;
+  y: number;
+  clusterId: number;
+  text: string;
+  sentiment: string;
+  stakeholderType: string | null;
+}
+
+export interface DebateMapCluster {
+  id: number;
+  label: string;
+  size: number;
+  averageSentiment: string;
+  keyThemes: string[];
+  color: string;
+}
+
+export interface ConflictZone {
+  cluster1: string;
+  cluster2: string;
+  description: string;
+}
+
+export interface DebateMapResponse {
+  points: DebateMapPoint[];
+  clusters: DebateMapCluster[];
+  narrative: string;
+  conflictZones: ConflictZone[];
+  consensusAreas: string[];
+}
+
 export interface Policy {
   id: string;
   title: string;
@@ -144,41 +182,49 @@ export interface PolicyListResponse {
 export const feedbackAPI = {
   // Submit new feedback
   submit: async (data: FeedbackSubmitRequest): Promise<Feedback> => {
-    const response = await apiClient.post<Feedback>('/api/v1/feedback/', data);
+    const response = await apiClient.post<Feedback>('/feedback', data);
     return response.data;
   },
 
   // Get all feedback
-  getAll: async (limit = 100, offset = 0): Promise<FeedbackListResponse> => {
-    const response = await apiClient.get<FeedbackListResponse>('/api/v1/feedback/', {
-      params: { limit, offset },
+  getAll: async (limit = 100, offset = 0, policyId?: string): Promise<FeedbackListResponse> => {
+    const response = await apiClient.get<FeedbackListResponse>('/feedback', {
+      params: { limit, offset, policyId },
     });
     return response.data;
   },
 
   // Get analytics
-  getAnalytics: async (): Promise<AnalyticsResponse> => {
-    const response = await apiClient.get<AnalyticsResponse>('/api/v1/feedback/analytics/');
+  getAnalytics: async (policyId?: string): Promise<AnalyticsResponse> => {
+    const response = await apiClient.get<AnalyticsResponse>('/feedback/analytics', {
+      params: policyId ? { policyId } : {},
+    });
     return response.data;
   },
 
   // Generate summary
-  generateSummary: async (): Promise<SummaryResponse> => {
-    const response = await apiClient.post<SummaryResponse>('/api/v1/feedback/summary/');
+  generateSummary: async (policyId?: string): Promise<SummaryResponse> => {
+    const response = await apiClient.get<SummaryResponse>('/summary', {
+      params: policyId ? { policyId } : {},
+    });
     return response.data;
   },
 
   // Perform clustering
-  cluster: async (numClusters: number): Promise<ClusterResponse> => {
-    const response = await apiClient.post<ClusterResponse>('/api/v1/feedback/cluster/', {
-      numClusters,
+  cluster: async (numClusters: number, policyId?: string): Promise<ClusterResponse> => {
+    const response = await apiClient.post<ClusterResponse>('/clustering', {
+      num_clusters: numClusters,
+      policyId,
     });
     return response.data;
   },
 
   // Get word cloud URL
-  getWordCloudUrl: (): string => {
-    return `${API_BASE_URL}/api/v1/feedback/wordcloud/`;
+  getWordCloudUrl: (policyId?: string, language = 'English'): string => {
+    const params = new URLSearchParams();
+    if (policyId) params.set('policyId', policyId);
+    params.set('language', language);
+    return `/api/wordcloud?${params.toString()}`;
   },
 };
 
@@ -194,8 +240,8 @@ export const legalAPI = {
 
 export const healthAPI = {
   // Health check
-  check: async (): Promise<any> => {
-    const response = await apiClient.get('/health');
+  check: async (): Promise<Record<string, unknown>> => {
+    const response = await apiClient.get<Record<string, unknown>>('/health');
     return response.data;
   },
 };
@@ -203,7 +249,7 @@ export const healthAPI = {
 export const policyAPI = {
   // Get all policies
   getAll: async (status?: string, limit = 100, offset = 0): Promise<PolicyListResponse> => {
-    const response = await apiClient.get<PolicyListResponse>('/api/v1/policy/list', {
+    const response = await apiClient.get<PolicyListResponse>('/policy', {
       params: { status, limit, offset },
     });
     return response.data;
@@ -211,13 +257,13 @@ export const policyAPI = {
 
   // Get specific policy by ID
   getById: async (policyId: string): Promise<Policy> => {
-    const response = await apiClient.get<Policy>(`/api/v1/policy/${policyId}`);
+    const response = await apiClient.get<Policy>(`/policy/${policyId}`);
     return response.data;
   },
 
   // Get current active policy
   getActive: async (): Promise<Policy> => {
-    const response = await apiClient.get<Policy>('/api/v1/policy/active/current');
+    const response = await apiClient.get<Policy>('/policy/active');
     return response.data;
   },
 
@@ -230,14 +276,53 @@ export const policyAPI = {
     version?: string;
     status?: string;
   }): Promise<Policy> => {
-    const response = await apiClient.post<Policy>('/api/v1/policy/create', data);
+    const response = await apiClient.post<Policy>('/policy', data);
     return response.data;
   },
   // Update policy status
-  updateStatus: async (policyId: string, status: string): Promise<any> => {
-    const response = await apiClient.patch(`/api/v1/policy/${policyId}/status`, null, {
-      params: { status },
-    });
+  updateStatus: async (policyId: string, status: string): Promise<Policy> => {
+    const response = await apiClient.patch<Policy>(`/policy/${policyId}`, { status });
+    return response.data;
+  },
+};
+
+// ============= Authentication ============= //
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: 'admin' | 'client';
+  };
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+  role?: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user: LoginResponse['user'];
+}
+
+export const authAPI = {
+  login: async (data: LoginRequest): Promise<LoginResponse> => {
+    const response = await apiClient.post<LoginResponse>('/auth/login', data);
+    return response.data;
+  },
+
+  register: async (data: RegisterRequest): Promise<RegisterResponse> => {
+    const response = await apiClient.post<RegisterResponse>('/auth/register', data);
     return response.data;
   },
 };
@@ -248,27 +333,25 @@ export interface ChatReply { reply: string; usedContext: number; model?: string;
 
 export const assistantAPI = {
   chat: async (messages: ChatMessage[], options?: { sentimentFocus?: string }) => {
-    const token = localStorage.getItem('token')
     const payload = {
       messages,
       sentimentFocus: options?.sentimentFocus,
       includeContext: true,
       maxHistory: 10,
     }
-    const res = await apiClient.post('/api/v1/ai/assistant/chat', payload, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    return res.data as ChatReply
+    const res = await apiClient.post<ChatReply>('/ai/assistant/chat', payload)
+    return res.data
   }
 }
 
 // Optional: debate map API wrapper for consistent auth handling
 export const aiAnalyticsAPI = {
-  async getDebateMap(regenerate = false) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const res = await apiClient.get(`/api/v1/ai/analytics/debate-map?regenerate=${regenerate}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+  async getDebateMap(regenerate = false, policyId?: string) {
+    const params: Record<string, string | number | boolean> = { regenerate };
+    if (policyId) {
+      params.policyId = policyId;
+    }
+    const res = await apiClient.get<DebateMapResponse>('/ai/analytics/debate-map', { params });
     return res.data;
   },
 };

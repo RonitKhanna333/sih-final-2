@@ -15,7 +15,7 @@ export default function ProtectedRoute({
   requireAdmin = false,
   requireClient = false 
 }: ProtectedRouteProps) {
-  const { user, loading, isAuthenticated, isAdmin, isClient } = useAuth();
+  const { loading, isAuthenticated, isAdmin, isClient } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

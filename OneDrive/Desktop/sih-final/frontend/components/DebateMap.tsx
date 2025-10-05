@@ -2,62 +2,21 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Info, GitBranch } from 'lucide-react';
+import { aiAnalyticsAPI, type DebateMapResponse } from '@/lib/api';
+import type { Config, Layout, PlotData } from 'plotly.js';
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-interface DebateMapPoint {
-  id: string;
-  x: number;
-  y: number;
-  clusterId: number;
-  text: string;
-  sentiment: string;
-  stakeholderType: string | null;
-}
-
-interface DebateMapCluster {
-  id: number;
-  label: string;
-  size: number;
-  averageSentiment: string;
-  keyThemes: string[];
-  color: string;
-}
-
-interface ConflictZone {
-  cluster1: string;
-  cluster2: string;
-  description: string;
-}
-
-interface DebateMapData {
-  points: DebateMapPoint[];
-  clusters: DebateMapCluster[];
-  narrative: string;
-  conflictZones: ConflictZone[];
-  consensusAreas: string[];
-}
 
 export default function DebateMap() {
   const [regenerate, setRegenerate] = useState(false);
 
-  const { data, isLoading, error, refetch } = useQuery<DebateMapData>({
+  const { data, isLoading, error, refetch } = useQuery<DebateMapResponse>({
     queryKey: ['debateMap', regenerate],
-    queryFn: async () => {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_URL}/api/v1/ai/analytics/debate-map?regenerate=${regenerate}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
-    },
+    queryFn: () => aiAnalyticsAPI.getDebateMap(regenerate),
     staleTime: 3600000, // Cache for 1 hour
   });
 
@@ -103,25 +62,26 @@ export default function DebateMap() {
   if (!data) return null;
 
   // Detect minimal/flat mode (all y ~ 0 or single cluster)
-  const allY = data.points.map(p => p.y)
-  const yVar = allY.length > 1 ? Math.max(...allY) - Math.min(...allY) : 0
-  const isFlat = Math.abs(yVar) < 1e-6
-  const isSingleCluster = new Set(data.points.map(p => p.clusterId)).size <= 1
+  const allY = data.points.map((point) => point.y);
+  const yVar = allY.length > 1 ? Math.max(...allY) - Math.min(...allY) : 0;
+  const isFlat = Math.abs(yVar) < 1e-6;
+  const isSingleCluster = new Set(data.points.map((point) => point.clusterId)).size <= 1;
 
   // Prepare Plotly data
-  const traces = data.clusters.map((cluster) => {
-    const clusterPoints = data.points.filter(p => p.clusterId === cluster.id);
-    
+  const traces: Array<Partial<PlotData>> = data.clusters.map((cluster): Partial<PlotData> => {
+    const clusterPoints = data.points.filter((point) => point.clusterId === cluster.id);
+
     return {
-      x: clusterPoints.map(p => p.x),
-      y: clusterPoints.map(p => p.y),
+      x: clusterPoints.map((point) => point.x),
+      y: clusterPoints.map((point) => point.y),
       mode: 'markers',
       type: 'scatter',
       name: cluster.label,
-      text: clusterPoints.map(p => 
-        `${p.text.substring(0, 100)}...<br>` +
-        `Sentiment: ${p.sentiment}<br>` +
-        `Stakeholder: ${p.stakeholderType || 'General'}`
+      text: clusterPoints.map(
+        (point) =>
+          `${point.text.substring(0, 100)}...<br>` +
+          `Sentiment: ${point.sentiment}<br>` +
+          `Stakeholder: ${point.stakeholderType || 'General'}`
       ),
       hoverinfo: 'text',
       marker: {
@@ -130,47 +90,47 @@ export default function DebateMap() {
         opacity: 0.7,
         line: {
           color: 'white',
-          width: 1
-        }
-      }
+          width: 1,
+        },
+      },
     };
   });
 
   // Add noise points (clusterId: -1) if any
-  const noisePoints = data.points.filter(p => p.clusterId === -1);
+  const noisePoints = data.points.filter((point) => point.clusterId === -1);
   if (noisePoints.length > 0) {
-    traces.push({
-      x: noisePoints.map(p => p.x),
-      y: noisePoints.map(p => p.y),
+  traces.push({
+      x: noisePoints.map((point) => point.x),
+      y: noisePoints.map((point) => point.y),
       mode: 'markers',
       type: 'scatter',
       name: 'Uncategorized',
-      text: noisePoints.map(p => 
-        `${p.text.substring(0, 100)}...<br>Sentiment: ${p.sentiment}`
+      text: noisePoints.map(
+        (point) => `${point.text.substring(0, 100)}...<br>Sentiment: ${point.sentiment}`
       ),
       hoverinfo: 'text',
       marker: {
         size: 6,
         color: '#9ca3af',
         opacity: 0.4,
-        line: { color: 'white', width: 1 }
-      }
+        line: { color: 'white', width: 1 },
+      },
     });
   }
 
-  const layout = {
+  const layout: Partial<Layout> = {
     title: {
       text: 'Opinion Landscape - Interactive Debate Map',
       font: { size: 18, color: '#374151' }
     },
     xaxis: {
-      title: 'Dimension 1',
+      title: { text: 'Dimension 1' },
       showgrid: true,
       gridcolor: '#e5e7eb',
       zeroline: false
     },
     yaxis: {
-      title: 'Dimension 2',
+      title: { text: 'Dimension 2' },
       showgrid: true,
       gridcolor: '#e5e7eb',
       zeroline: false
@@ -187,12 +147,12 @@ export default function DebateMap() {
     margin: { l: 60, r: 200, t: 60, b: 60 }
   };
 
-  const config: Partial<any> = {
+  const modeBarButtonsToRemove: NonNullable<Config['modeBarButtonsToRemove']> = ['select2d', 'lasso2d'];
+  const config: Partial<Config> = {
     responsive: true,
     displayModeBar: true,
-    // Casting to any to avoid strict typing mismatch for ModeBarDefaultButtons union
-    modeBarButtonsToRemove: ['select2d', 'lasso2d'] as any,
-    displaylogo: false
+    modeBarButtonsToRemove,
+    displaylogo: false,
   };
 
   return (
@@ -229,8 +189,8 @@ export default function DebateMap() {
         <CardContent>
           <div className="bg-white rounded-lg border">
             <Plot
-              data={traces as any}
-              layout={layout as any}
+              data={traces}
+              layout={layout}
               config={config}
               style={{ width: '100%' }}
             />

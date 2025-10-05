@@ -1,16 +1,28 @@
 // Simple PDF helpers for exporting generated documents and DOM sections
 // Use dynamic imports to keep these client-only and avoid SSR issues
 
-async function getJsPDF() {
+import type { jsPDF } from 'jspdf'
+
+type JsPDFConstructor = typeof import('jspdf').jsPDF
+type Html2CanvasFn = typeof import('html2canvas') extends { default: infer T } ? T : never
+
+async function getJsPDF(): Promise<JsPDFConstructor> {
   const mod = await import('jspdf')
-  // Handle both ESM default export and UMD named export patterns
-  const anyMod = mod as any
-  return anyMod.jsPDF || anyMod.default || anyMod
+  if ('jsPDF' in mod && mod.jsPDF) {
+    return mod.jsPDF
+  }
+  if ('default' in mod && mod.default) {
+    return mod.default as JsPDFConstructor
+  }
+  throw new Error('jsPDF constructor not found in module output')
 }
 
-async function getHtml2Canvas() {
+async function getHtml2Canvas(): Promise<Html2CanvasFn> {
   const mod = await import('html2canvas')
-  return (mod as any).default || (mod as any)
+  if ('default' in mod && mod.default) {
+    return mod.default
+  }
+  return mod as unknown as Html2CanvasFn
 }
 
 export interface GeneratedDocSection {
@@ -26,7 +38,7 @@ export interface GeneratedDocumentLike {
   metadata?: {
     totalFeedbackAnalyzed?: number
     dateGenerated?: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -72,8 +84,8 @@ export function exportGeneratedDocumentToPDF(doc: GeneratedDocumentLike, filenam
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   ;(async () => {
     try {
-      const JsPDF = await getJsPDF()
-      const pdf = new JsPDF('p', 'mm', 'a4')
+  const JsPDF = await getJsPDF()
+  const pdf = new JsPDF('p', 'mm', 'a4')
   const margin = 15
   const maxWidth = pdf.internal.pageSize.getWidth() - margin * 2
   let y = margin
@@ -132,7 +144,7 @@ export function exportGeneratedDocumentToPDF(doc: GeneratedDocumentLike, filenam
   })()
 }
 
-function ensureSpace(pdf: any, y: number, needed: number, margin: number) {
+function ensureSpace(pdf: jsPDF, y: number, needed: number, margin: number) {
   const pageHeight = pdf.internal.pageSize.getHeight()
   if (y + needed > pageHeight - margin) {
     pdf.addPage()

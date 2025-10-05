@@ -7,12 +7,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { GitBranch, ChevronDown, ChevronUp } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Using Next.js API routes - no external backend needed
+const API_BASE = '/api';
 
 interface ClusterData {
-  clusters: Record<string, any[]>;
-  silhouetteScore: number;
+  clusters: Record<string, ClusterFeedbackEntry[]>;
+  silhouetteScore: number | null;
   numClusters: number;
+  narrative?: string;
+}
+
+interface ClusterFeedbackEntry {
+  id: string;
+  text: string | null;
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
+  language?: string;
+  stakeholderType?: string;
 }
 
 export default function ClusteringAnalysis() {
@@ -20,12 +30,12 @@ export default function ClusteringAnalysis() {
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [clusterData, setClusterData] = useState<ClusterData | null>(null);
 
-  const clusterMutation = useMutation({
+  const clusterMutation = useMutation<ClusterData, Error>({
     mutationFn: async () => {
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_URL}/api/v1/feedback/cluster/`,
-        { numClusters },
+      const response = await axios.post<ClusterData>(
+        `${API_BASE}/clustering`,
+        { num_clusters: numClusters },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       return response.data;
@@ -36,6 +46,12 @@ export default function ClusteringAnalysis() {
       const firstCluster = Object.keys(data.clusters)[0];
       if (firstCluster) {
         setExpandedClusters(new Set([firstCluster]));
+      }
+    },
+    onError: (error) => {
+      console.error('Clustering error:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Response data:', error.response?.data);
       }
     }
   });
@@ -109,13 +125,34 @@ export default function ClusteringAnalysis() {
           {/* Error Display */}
           {clusterMutation.isError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              Failed to perform clustering. Make sure there's enough feedback data.
+              <p className="font-medium">Failed to perform clustering</p>
+              <p className="text-sm mt-1">
+                {clusterMutation.error?.message || 'Make sure there is enough feedback data. You need at least 2 feedback entries to create clusters.'}
+              </p>
             </div>
           )}
 
           {/* Results */}
-          {clusterData && (
+          {clusterData && Object.keys(clusterData.clusters).length === 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
+              <p className="font-medium">No feedback data available</p>
+              <p className="text-sm mt-1">
+                Submit some feedback first to see clustering analysis. The system groups similar feedback together to identify common themes.
+              </p>
+            </div>
+          )}
+
+          {/* Results */}
+          {clusterData && Object.keys(clusterData.clusters).length > 0 && (
             <div className="space-y-4">
+              {/* Narrative Summary */}
+              {clusterData.narrative && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-indigo-900 mb-2">Debate Landscape</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">{clusterData.narrative}</p>
+                </div>
+              )}
+
               {/* Silhouette Score */}
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                 <div className="flex items-center justify-between">
@@ -126,7 +163,9 @@ export default function ClusteringAnalysis() {
                     </p>
                   </div>
                   <div className="text-3xl font-bold text-blue-700">
-                    {(clusterData.silhouetteScore * 100).toFixed(1)}%
+                    {clusterData.silhouetteScore !== null
+                      ? `${(clusterData.silhouetteScore * 100).toFixed(1)}%`
+                      : '—'}
                   </div>
                 </div>
               </div>
@@ -170,7 +209,7 @@ export default function ClusteringAnalysis() {
                       {/* Cluster Content */}
                       {isExpanded && (
                         <div className="p-4 space-y-3 bg-white">
-                          {items.map((item: any, idx: number) => (
+                          {items.map((item, idx) => (
                             <div
                               key={item.id || idx}
                               className="p-3 bg-gray-50 rounded-lg border"

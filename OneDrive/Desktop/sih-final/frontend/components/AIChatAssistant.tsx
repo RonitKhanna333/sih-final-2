@@ -18,7 +18,7 @@ export default function AIChatAssistant() {
   const [sentimentFocus, setSentimentFocus] = useState<string>('all');
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  const chatMutation = useMutation<ChatReply, any, { prompt: string }>({
+  const chatMutation = useMutation<ChatReply, Error, { prompt: string }>({
     mutationFn: async ({ prompt }) => {
       const chain: ChatMessage[] = messages
         .filter(m => !m.pending)
@@ -33,7 +33,7 @@ export default function AIChatAssistant() {
           id: crypto.randomUUID(), role: 'assistant', content: data.reply
         }));
     },
-    onError: (err) => {
+    onError: () => {
       setMessages(prev => prev.filter(m => !m.pending).concat({
         id: crypto.randomUUID(), role: 'assistant', content: 'Error: unable to generate reply.'
       }));

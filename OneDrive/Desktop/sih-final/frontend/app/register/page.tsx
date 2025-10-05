@@ -34,8 +34,9 @@ export default function RegisterPage() {
       
       // Redirect based on role
       router.push(role === 'admin' ? '/admin/dashboard' : '/client/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Failed to register');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to register';
+      setError(message);
     } finally {
       setLoading(false);
     }
